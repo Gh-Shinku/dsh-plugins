@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024"]
+  },
+  "include": [],
+  "exclude": ["packages/*/src/client"],
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/dsh-mcp-manager/tsconfig.host.json"
+    }
+  ]
+}

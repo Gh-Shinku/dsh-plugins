@@ -1,0 +1,3 @@
+- insert:
+    - id: shinku-mcp-manager
+      name: "@shinku-ever/dsh-mcp-manager"

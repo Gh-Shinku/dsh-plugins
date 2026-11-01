@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  },
+  "include": [],
+  "exclude": [],
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/dsh-mcp-manager/tsconfig.client.json"
+    }
+  ]
+}

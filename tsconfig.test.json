@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "ESNext.Disposable"]
+  },
+  "include": ["packages/*/test/**/*.ts", "packages/*/test/**/*.tsx"],
+  "exclude": []
+}
