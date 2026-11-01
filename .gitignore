@@ -1,0 +1,15 @@
+node_modules/
+lib/
+coverage/
+.vitest/
+.artifacts/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.npmrc
+*.tgz
+*.log
+/packages/*/pnpm-lock.yaml
+.DS_Store
+Thumbs.db
