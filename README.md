@@ -4,6 +4,9 @@ A monorepo of independently installable DeepSeek Harness plugins under the `@shi
 
 Plugin introductions, installation instructions, and usage guides live in [docs](./docs/).
 
+- [MCP manager](./docs/dsh-mcp-manager.md)
+- [Desktop notifications](./docs/dsh-desktop-notifications.md)
+
 ## Development
 
 Use Node 24.9 or later and pnpm 11.6.0.

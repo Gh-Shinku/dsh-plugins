@@ -94,3 +94,78 @@ assert(browserSource.includes('name: "conversation.input.left"'), "Session statu
 assert(!browserSource.includes("shinku-mcp-popover"), "Custom popup must not be bundled");
 assert(!browserSource.includes("window.confirm("), "Browser confirmation must not be bundled");
 console.log(`Verified ${files.length} packed files, native Host imports, six Remote codecs, and the browser factory.`);
+
+// Independently installable desktop plugin: exercise the actual archive and shell module factory.
+const notificationManifest = JSON.parse(await readFile("packages/dsh-desktop-notifications/package.json", "utf8"));
+run("pnpm", ["--filter", notificationManifest.name, "pack", "--pack-destination", artifacts]);
+const notificationArchive = resolve(
+  artifacts,
+  `${notificationManifest.name.replace(/^@/, "").replace("/", "-")}-${notificationManifest.version}.tgz`,
+);
+const notificationFiles = run("tar", ["-tzf", notificationArchive]).trim().split(/\r?\n/);
+for (const required of [
+  "lib/index.js",
+  "lib/client.js",
+  "lib/types/index.d.ts",
+  "lib/types/client/index.d.ts",
+  "cordis.patch.yml",
+  "README.md",
+  "LICENSE",
+])
+  assert(notificationFiles.includes(`package/${required}`), `Desktop notifications missing ${required}`);
+assert(!notificationFiles.some((file) => /^package\/(src|test)\//.test(file)));
+const notificationDirectory = resolve(artifacts, "packed-notifications");
+assert.equal(relative(artifacts, notificationDirectory), "packed-notifications");
+await rm(notificationDirectory, { recursive: true, force: true });
+await mkdir(notificationDirectory, { recursive: true });
+run("tar", ["-xzf", notificationArchive, "-C", notificationDirectory]);
+const notificationRoot = resolve(notificationDirectory, "package");
+const packedNotifications = JSON.parse(await readFile(`${notificationRoot}/package.json`, "utf8"));
+assert.equal(packedNotifications.engines.dsh, "0.2.1-rc.5");
+assert.equal(packedNotifications.dsh.bundle.patch, "./cordis.patch.yml");
+const notificationHost = await import(pathToFileURL(`${notificationRoot}/lib/index.js`).href);
+assert.equal(typeof notificationHost.apply, "function");
+assert.equal(notificationHost.Config({}).enabled.get(), true);
+for (const peer of Object.keys(packedNotifications.peerDependencies).filter((name) =>
+  name.startsWith("@deepseek-ai/"),
+)) {
+  const peerManifest = require(`${peer}/package.json`);
+  if (peer !== "@deepseek-ai/cordis") assert.equal(peerManifest.version, packedNotifications.engines.dsh);
+}
+const notificationSource = await readFile(`${notificationRoot}/lib/client.js`, "utf8");
+assert(
+  !/require\(["'](?:node:|electron|@deepseek-ai\/dsh-settings["'])/.test(notificationSource),
+  "Host import in desktop client",
+);
+let notificationClient;
+runInNewContext(notificationSource, {
+  window: {
+    __ModuleLoader__: {
+      load({ id, factory }) {
+        assert.equal(id, packedNotifications.name);
+        notificationClient = factory((specifier) => {
+          assert(
+            ["react", "react/jsx-runtime", "@deepseek-ai/dsh-client-ui-primitives"].includes(specifier),
+            `Unexpected desktop browser external ${specifier}`,
+          );
+          return specifier === "@deepseek-ai/dsh-client-ui-primitives" ? {} : require(specifier);
+        });
+      },
+    },
+  },
+});
+assert.equal(typeof notificationClient.apply, "function");
+// Browser profiles must be a complete no-op, with no service access or permission request.
+notificationClient.apply(
+  new Proxy(
+    {},
+    {
+      get() {
+        throw new Error("Web profile accessed a desktop service");
+      },
+    },
+  ),
+);
+console.log(
+  `Verified ${notificationFiles.length} desktop notification files, declared Harness peers, native settings schema, and browser isolation.`,
+);

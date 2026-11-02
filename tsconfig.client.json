@@ -9,6 +9,9 @@
   "references": [
     {
       "path": "./packages/dsh-mcp-manager/tsconfig.client.json"
+    },
+    {
+      "path": "./packages/dsh-desktop-notifications/tsconfig.client.json"
     }
   ]
 }

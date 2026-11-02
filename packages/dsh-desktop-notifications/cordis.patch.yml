@@ -1,0 +1,3 @@
+- insert:
+    - id: shinku-desktop-notifications
+      name: "@shinku-ever/dsh-desktop-notifications"
