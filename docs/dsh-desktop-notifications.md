@@ -20,7 +20,7 @@ The plugin reports:
 
 Manual cancellation and subagent sessions do not generate their own notifications. Foreground events are suppressed and are not sent later. Notifications contain only the durable session title and status; a missing title uses “Harness task”. Answers, questions, commands, and raw errors are excluded.
 
-Click a notification to try to activate Harness and open its conversation. Viewing that conversation while Harness is in front clears its notification. Returning to Harness without viewing the conversation does not clear it. A newer notification replaces an older one for the same session.
+Click a notification to restore and activate Harness through its registered `dsh://open` protocol and open its conversation. Viewing that conversation while Harness is in front clears its notification. Returning to Harness without viewing the conversation does not clear it. A newer notification replaces an older one for the same session.
 
 ## Limits
 
@@ -33,9 +33,9 @@ Click a notification to try to activate Harness and open its conversation. Viewi
 
 ## Implementation
 
-The Host half is an empty bundle entrypoint without configuration. The client starts immediately and uses native session references and journals, `uiSession.sessionStatus`, and `uiWorkspace.openSession`. It sends Web Notifications from the renderer and never imports Electron or Host services into its browser bundle. Foreground detection combines visibility with document focus.
+The Host half exposes a no-argument activation operation that opens only the fixed `dsh://open` URI through the native command utility; it accepts no executable, URL, or command from the client and requires a local Electron Host. It has no configuration. The client starts immediately and uses native session references and journals, `uiSession.sessionStatus`, and `uiWorkspace.openSession`. It sends Web Notifications from the renderer and never imports Electron or Host services into its browser bundle. Per-session replacement is managed inside the plugin, without a system notification tag. Foreground detection combines visibility with document focus.
 
-Running top-level sessions are retained while their live completion events are observed. An idle status allows five seconds for the final journal record to arrive before releasing its reference. Session removal, connection-generation changes, disabling, and plugin disposal release owned references, subscriptions, timers, and notifications. There are no plugin settings; unread notifications exist only in the current client.
+Opened top-level sessions are observed as soon as a native consumer retains them, even when the catalog running bit has not caught up. Catalog and native UI running state also discover sessions to observe. A live turn start keeps the subscription through its end after navigating away. When no native consumer or running turn remains, an idle status allows five seconds for the final journal record to arrive before releasing its reference. Session removal, connection-generation changes, disabling, and plugin disposal release owned references, subscriptions, timers, and notifications. There are no plugin settings; unread notifications exist only in the current client.
 
 ## 手动验收
 

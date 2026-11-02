@@ -124,7 +124,9 @@ const packedNotifications = JSON.parse(await readFile(`${notificationRoot}/packa
 assert.equal(packedNotifications.engines.dsh, "0.2.1-rc.5");
 assert.equal(packedNotifications.dsh.bundle.patch, "./cordis.patch.yml");
 const notificationHost = await import(pathToFileURL(`${notificationRoot}/lib/index.js`).href);
-assert.equal(typeof notificationHost.apply, "function");
+assert.equal(typeof notificationHost.default, "function");
+const activationRemote = await import(pathToFileURL(`${notificationRoot}/lib/typert.remote-client.js`).href);
+assert.equal(Object.keys(activationRemote.default.methods).length, 1);
 assert.equal(notificationHost.Config, undefined, "Desktop notifications must not expose a settings schema");
 assert(!notificationFiles.some((file) => file.includes("settings")), "Stale notification settings in package");
 for (const peer of Object.keys(packedNotifications.peerDependencies).filter((name) =>
@@ -145,7 +147,8 @@ runInNewContext(notificationSource, {
       load({ id, factory }) {
         assert.equal(id, packedNotifications.name);
         notificationClient = factory((specifier) => {
-          throw new Error(`Unexpected desktop browser external ${specifier}`);
+          assert.equal(specifier, "zod", `Unexpected desktop browser external ${specifier}`);
+          return require(specifier);
         });
       },
     },
@@ -153,7 +156,7 @@ runInNewContext(notificationSource, {
 });
 assert.equal(typeof notificationClient.apply, "function");
 // Browser profiles must be a complete no-op, with no service access or permission request.
-notificationClient.apply(
+await notificationClient.apply(
   new Proxy(
     {},
     {

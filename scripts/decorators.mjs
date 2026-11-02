@@ -6,7 +6,7 @@ export function decorators() {
     name: "dsh-standard-decorators",
     enforce: "pre",
     transform(code, id) {
-      if (!/[\\/]manager\.ts(?:\?.*)?$/.test(id) || !code.includes("@Remote")) return null;
+      if (!/\.tsx?(?:\?.*)?$/.test(id) || !code.includes("@Remote")) return null;
       return {
         code: ts.transpileModule(code, {
           compilerOptions: {

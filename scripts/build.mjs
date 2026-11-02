@@ -34,7 +34,6 @@ if (relative(process.cwd(), notificationOutput).replaceAll("\\", "/") !== `${not
   throw new Error("Unexpected desktop notification build output");
 await rm(notificationOutput, { recursive: true, force: true });
 tsc("host", notifications);
-tsc("client", notifications);
 await build({
   entry: { index: `${notifications}/src/index.ts` },
   outDir: `${notifications}/lib`,
@@ -44,8 +43,11 @@ await build({
   dts: false,
   sourcemap: false,
   deps: { neverBundle: [/^@deepseek-ai\//] },
+  plugins: [decorators()],
   outputOptions: { entryFileNames: "[name].js" },
 });
+await reflection();
+tsc("client", notifications);
 await build({
   entry: { client: `${notifications}/src/client/index.ts` },
   inputOptions: { platform: "browser" },
@@ -55,7 +57,7 @@ await build({
   clean: false,
   dts: false,
   sourcemap: false,
-  deps: { alwaysBundle: [/./] },
+  deps: { neverBundle: ["zod"], alwaysBundle: [/./] },
   define: { "process.env.NODE_ENV": '"production"' },
   outputOptions: {
     entryFileNames: "[name].js",
@@ -64,7 +66,6 @@ await build({
     footer: "return module.exports; } });",
   },
 });
-await reflection();
 tsc("client");
 await build({
   entry: { client: `${pkg}/src/client/index.ts` },

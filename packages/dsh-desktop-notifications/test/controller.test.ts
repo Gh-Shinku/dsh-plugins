@@ -69,7 +69,7 @@ function harness(options: { running?: boolean; parent?: boolean; foreground?: bo
     release: released,
   } as unknown as SessionReference;
   const retain = vi.fn(() => reference);
-  const show = vi.fn((_title: string, _body: string, _tag: string, click: () => void) => ({ close: vi.fn(), click }));
+  const show = vi.fn((_title: string, _body: string, click: () => void) => ({ close: vi.fn(), click }));
   const open = vi.fn();
   const warn = vi.fn();
   const controller = new NotificationController({ list, retain } as unknown as ISessions, status, generation, {
@@ -130,6 +130,54 @@ function harness(options: { running?: boolean; parent?: boolean; foreground?: bo
 }
 
 describe("desktop notification policy", () => {
+  it("observes opened sessions and repeated completions while the catalog running bit stays false", async () => {
+    const h = harness({ running: false });
+    h.row.retainedBy = { mainView: 1 };
+    h.controller.setEnabled(true);
+    expect(h.retain).toHaveBeenCalledOnce();
+    h.append("completed");
+    await Promise.resolve();
+    expect(h.show).toHaveBeenCalledOnce();
+    expect(h.released).not.toHaveBeenCalled();
+    h.append("error");
+    expect(h.show).toHaveBeenCalledTimes(2);
+  });
+  it("keeps a running turn after navigation when the catalog running bit stays false", async () => {
+    vi.useFakeTimers();
+    const h = harness({ running: false });
+    h.row.retainedBy = { mainView: 1 };
+    h.controller.setEnabled(true);
+    const entry = { type: "event", event: { type: "turn/start", seq: 1, time: 1, data: { turn: 1 } } };
+    h.events.set({
+      entries: [entry],
+      hasMore: false,
+      revision: 1,
+      change: { kind: "append", entries: [entry] },
+    } as unknown as SessionEventWindow);
+    h.row.retainedBy = {};
+    h.list.set({ ...h.list.getSnapshot() });
+    vi.advanceTimersByTime(20_000);
+    expect(h.released).not.toHaveBeenCalled();
+    h.append("completed", 2);
+    await Promise.resolve();
+    expect(h.show).toHaveBeenCalledOnce();
+    expect(h.released).toHaveBeenCalledOnce();
+  });
+  it("does not retain an idle session just because the notification plugin owns a reference", () => {
+    const h = harness({ running: false });
+    h.row.retainedBy = { desktopNotifications: 1 };
+    h.controller.setEnabled(true);
+    expect(h.retain).not.toHaveBeenCalled();
+  });
+  it("can start observing from the native UI running source before the catalog catches up", () => {
+    const h = harness({ running: false });
+    h.controller.setEnabled(true);
+    expect(h.retain).not.toHaveBeenCalled();
+    h.pending("question");
+    expect(h.retain).toHaveBeenCalledOnce();
+    h.append("completed");
+    expect(h.show).toHaveBeenCalledTimes(2);
+  });
   it("handles synchronous native retention publication and disable without reacquiring", () => {
     const h = harness();
     const original = h.retain.getMockImplementation();
@@ -154,7 +202,6 @@ describe("desktop notification policy", () => {
     expect(h.show).toHaveBeenCalledWith(
       "Build project",
       reason === "completed" ? "completed" : "failed",
-      `dsh-desktop-notifications:${id}`,
       expect.any(Function),
     );
   });

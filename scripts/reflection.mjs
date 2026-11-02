@@ -35,6 +35,36 @@ export async function reflection() {
     `import { Service, type Context } from '@deepseek-ai/cordis';\nimport { Remote, bindTypertRemote } from '@deepseek-ai/dsh-typert-protocol';\nimport type { McpServerView, ProfileDocument, ProfileSnapshot, SelectionView, SessionSelection } from './contracts.ts';\nexport type * from './contracts.ts';\ntype SessionId = string;\nexport class McpManager extends Service { readonly typertRemote = bindTypertRemote(this, 'shinkuMcpManager'); constructor(ctx:Context) { super(ctx,'shinkuMcpManager'); }\n${methods}\n}\ndeclare module '@deepseek-ai/cordis' { interface Context { shinkuMcpManager: McpManager; } }\n`,
   );
   for (const name of ["package.json", "tsconfig.host.json"]) await cp(`${pkg}/${name}`, `${root}/${pkg}/${name}`);
+  const notificationPackage = "packages/dsh-desktop-notifications";
+  await mkdir(`${root}/${notificationPackage}/src`, { recursive: true });
+  const notificationSource = ts.createSourceFile(
+    "index.ts",
+    await readFile(`${notificationPackage}/src/index.ts`, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const notificationService = notificationSource.statements.find(
+    (s) => ts.isClassDeclaration(s) && s.name?.text === "DesktopNotifications",
+  );
+  if (!notificationService) throw new Error("DesktopNotifications declaration missing");
+  const notificationMethods = notificationService.members
+    .filter((m) => ts.isMethodDeclaration(m) && (ts.getDecorators(m) ?? []).length > 0)
+    .map(
+      (m) => `${notificationSource.text.slice(m.getFullStart(), m.body.pos)} { throw new Error('reflection only'); }`,
+    )
+    .join("\n");
+  await writeFile(
+    `${root}/${notificationPackage}/src/index.ts`,
+    `import { Service, type Context } from '@deepseek-ai/cordis';
+import { Remote, bindTypertRemote } from '@deepseek-ai/dsh-typert-protocol';
+export class DesktopNotifications extends Service { readonly typertRemote = bindTypertRemote(this, 'shinkuDesktopNotifications'); constructor(ctx: Context) { super(ctx, 'shinkuDesktopNotifications'); }
+${notificationMethods}
+}
+declare module '@deepseek-ai/cordis' { interface Context { shinkuDesktopNotifications: DesktopNotifications; } }
+`,
+  );
+  for (const name of ["package.json", "tsconfig.host.json"])
+    await cp(`${notificationPackage}/${name}`, `${root}/${notificationPackage}/${name}`);
   const base = JSON.parse(await readFile("tsconfig.json", "utf8"));
   base.compilerOptions.paths = { "@deepseek-ai/dsh-typert-protocol": ["./packages/protocol/index.d.ts"] };
   await writeFile(`${root}/tsconfig.json`, JSON.stringify(base));
@@ -52,10 +82,18 @@ export async function reflection() {
     JSON.stringify({
       extends: "./tsconfig.json",
       files: [],
-      references: [{ path: `${pkg}/tsconfig.host.json` }, { path: "packages/protocol" }],
+      references: [
+        { path: `${pkg}/tsconfig.host.json` },
+        { path: `${notificationPackage}/tsconfig.host.json` },
+        { path: "packages/protocol" },
+      ],
     }),
   );
-  const artifacts = new WorkspaceTypertGenerator(root).generate(["@shinku-ever/dsh-mcp-manager"], ["host"]);
+  const artifacts = new WorkspaceTypertGenerator(root).generate(
+    ["@shinku-ever/dsh-mcp-manager", "@shinku-ever/dsh-desktop-notifications"],
+    ["host"],
+  );
   await writeWorkspaceArtifacts(root, artifacts);
   await cp(`${root}/${pkg}/lib`, `${pkg}/lib`, { recursive: true });
+  await cp(`${root}/${notificationPackage}/lib`, `${notificationPackage}/lib`, { recursive: true });
 }
