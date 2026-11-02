@@ -3,13 +3,10 @@ import type { Context } from "@deepseek-ai/cordis";
 import type { ConnectionHandle } from "@deepseek-ai/dsh-api-remotes/client";
 import type {} from "@deepseek-ai/dsh-api-session-controller/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
-import type {} from "@deepseek-ai/dsh-client-ui-renderer/client";
 import type {} from "@deepseek-ai/dsh-client-ui-session/client";
-import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
 import type {} from "@deepseek-ai/dsh-client-ui-workspace/client";
 import { NotificationController } from "./controller.ts";
 import { en, type LocaleKey, zh } from "./locales.ts";
-import { NotificationSettings, type Preferences } from "./settings.tsx";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -17,7 +14,7 @@ declare module "@deepseek-ai/dsh-client-ui-slots" {
   }
 }
 
-export const inject = ["slots", "locale", "sessions", "uiSession", "uiWorkspace", "configForms", "connection"];
+export const inject = ["locale", "sessions", "uiSession", "uiWorkspace", "connection"];
 
 export function isDesktop(): boolean {
   const bridge = (window as Window & { dshDesktop?: { protocolVersion?: number } }).dshDesktop;
@@ -36,7 +33,6 @@ export function apply(ctx: Context): void {
     };
   });
   const t = ctx.locale.bind("shinku.desktopNotifications");
-  const form = ctx.configForms.get<Preferences>("shinku-desktop-notifications");
   const permission = () => (typeof Notification === "undefined" ? ("unsupported" as const) : Notification.permission);
   const foreground = () => document.visibilityState === "visible" && document.hasFocus();
   const all = new Set<Notification>();
@@ -78,35 +74,20 @@ export function apply(ctx: Context): void {
       },
     },
   );
-  const sync = () => {
-    const snapshot = form.getSnapshot();
-    controller.setEnabled(snapshot.status === "ready" && snapshot.value?.enabled === true);
-  };
-  ctx.effect(() => form.subscribe(sync));
-  sync();
   let active = true;
-  const test = async () => {
-    // Must precede any await that could lose the click's user activation.
-    const result = permission() === "default" ? await Notification.requestPermission() : permission();
-    if (!active) return;
-    if (result !== "granted") throw new Error("Notification permission unavailable");
-    if (!(await form.set("enabled", true))) throw new Error("Notification preference could not be saved");
-    if (!active) return;
-    show(t("title"), t("testBody"), "dsh-desktop-notifications:test", () => window.focus());
-  };
-  ctx.slots.inject("settings.section", () =>
-    ctx.slots.register(
-      {
-        name: "settings.section",
-        id: "shinku-desktop-notifications",
-        order: 26,
-        label: () => t("title"),
-        locale: "shinku.desktopNotifications",
-        inject: () => ({ form, permission, test }),
-      },
-      NotificationSettings,
-    ),
-  );
+  controller.setEnabled(true);
+  if (permission() === "default") {
+    // Desktop owns its permission handler. Installing the plugin enables it immediately.
+    void (async () => {
+      try {
+        const result = await Notification.requestPermission();
+        if (active && result !== "granted")
+          console.warn("[desktop-notifications] System notification permission unavailable");
+      } catch {
+        if (active) console.warn("[desktop-notifications] System notification permission unavailable");
+      }
+    })();
+  }
   ctx.effect(() => {
     window.addEventListener("focus", controller.acknowledge);
     document.addEventListener("visibilitychange", controller.acknowledge);

@@ -125,7 +125,8 @@ assert.equal(packedNotifications.engines.dsh, "0.2.1-rc.5");
 assert.equal(packedNotifications.dsh.bundle.patch, "./cordis.patch.yml");
 const notificationHost = await import(pathToFileURL(`${notificationRoot}/lib/index.js`).href);
 assert.equal(typeof notificationHost.apply, "function");
-assert.equal(notificationHost.Config({}).enabled.get(), true);
+assert.equal(notificationHost.Config, undefined, "Desktop notifications must not expose a settings schema");
+assert(!notificationFiles.some((file) => file.includes("settings")), "Stale notification settings in package");
 for (const peer of Object.keys(packedNotifications.peerDependencies).filter((name) =>
   name.startsWith("@deepseek-ai/"),
 )) {
@@ -144,11 +145,7 @@ runInNewContext(notificationSource, {
       load({ id, factory }) {
         assert.equal(id, packedNotifications.name);
         notificationClient = factory((specifier) => {
-          assert(
-            ["react", "react/jsx-runtime", "@deepseek-ai/dsh-client-ui-primitives"].includes(specifier),
-            `Unexpected desktop browser external ${specifier}`,
-          );
-          return specifier === "@deepseek-ai/dsh-client-ui-primitives" ? {} : require(specifier);
+          throw new Error(`Unexpected desktop browser external ${specifier}`);
         });
       },
     },
@@ -167,5 +164,5 @@ notificationClient.apply(
   ),
 );
 console.log(
-  `Verified ${notificationFiles.length} desktop notification files, declared Harness peers, native settings schema, and browser isolation.`,
+  `Verified ${notificationFiles.length} desktop notification files, declared Harness peers, settings-free startup, and browser isolation.`,
 );

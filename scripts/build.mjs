@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { relative, resolve } from "node:path";
 import { build } from "tsdown";
 import { decorators } from "./decorators.mjs";
 import { reflection } from "./reflection.mjs";
@@ -27,6 +29,10 @@ await build({
 });
 
 const notifications = "packages/dsh-desktop-notifications";
+const notificationOutput = resolve(notifications, "lib");
+if (relative(process.cwd(), notificationOutput).replaceAll("\\", "/") !== `${notifications}/lib`)
+  throw new Error("Unexpected desktop notification build output");
+await rm(notificationOutput, { recursive: true, force: true });
 tsc("host", notifications);
 tsc("client", notifications);
 await build({
@@ -49,7 +55,7 @@ await build({
   clean: false,
   dts: false,
   sourcemap: false,
-  deps: { neverBundle: ["react", "react/jsx-runtime", "@deepseek-ai/dsh-client-ui-primitives"], alwaysBundle: [/./] },
+  deps: { alwaysBundle: [/./] },
   define: { "process.env.NODE_ENV": '"production"' },
   outputOptions: {
     entryFileNames: "[name].js",
