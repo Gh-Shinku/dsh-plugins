@@ -31,7 +31,7 @@ pnpm --filter @shinku-ever/dsh-mcp-manager pack --pack-destination ../../.artifa
 Using the CLI bundled with your installed Desktop application, install the tarball into the desired profile:
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/to/shinku-ever-dsh-mcp-manager-0.1.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/shinku-ever-dsh-mcp-manager-0.0.1.tgz
 ```
 
 Select the installed bundle in Harness's Plugins UI and restart if requested. Use `web` instead of `desktop` for a standalone Web deployment. The package has not been published to npm.

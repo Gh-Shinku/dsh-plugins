@@ -21,7 +21,7 @@ jobs:
 
   select-mode:
     needs: checks
-    # Opt in only after credentials and the first release have been reviewed.
+    # Opt in only after trusted publisher bindings and the first release have been reviewed.
     if: vars.NPM_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -110,16 +110,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
-      - name: Check npm credential
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::Configure the NPM_TOKEN repository secret before enabling publication."
-            exit 1
-          fi
       - name: Publish packed packages and create releases
         id: publish
         uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
@@ -128,6 +119,5 @@ jobs:
           create-github-releases: true
           push-git-tags: true
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
-          NPM_CONFIG_PROVENANCE: "true"
+          PNPM_CONFIG_REGISTRY: https://registry.npmjs.org
+          PNPM_CONFIG_PROVENANCE: "true"

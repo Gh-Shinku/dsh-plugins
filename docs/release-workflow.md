@@ -1,49 +1,42 @@
 # Release workflow
 
-Both `@shinku-ever/dsh-mcp-manager` and `@shinku-ever/dsh-desktop-notifications` have independent public npm versions. The root package is private and is neither versioned nor tagged. Existing pending changesets are retained; setting up the workflow does not consume them or change package versions.
+Publishable plugins under `packages/*` use independent Changesets versions. The root package is private and is neither versioned nor tagged.
 
-## Workflow
+## Development
 
-Pushes to `main` and manual runs on `main` start `.github/workflows/publish.yml`. Its first job calls the reusable `check.yml`: Windows and Linux must both pass `pnpm check` and `pnpm pack:check`. Pull requests, other branch pushes, and manual check runs use `check.yml` directly.
+- Add a changeset with `pnpm changeset` when changing published plugin behavior. Repository-only documentation, tests, and tooling may omit one.
+- Inspect pending releases with `pnpm changeset:status`.
+- Keep version changes in the generated version PR. `pnpm version-packages` updates manifests, changelogs, and the lockfile and consumes pending changesets; validate it in a disposable fixture rather than the working checkout.
+- Run `pnpm check` and `pnpm pack:check` before delivery. Inspect packed README content, runtime entrypoints, and declared Harness compatibility when changing package contents.
+- Do not enable publication, dispatch release workflows, publish packages, or create tags or releases without explicit authorization.
 
-Release automation is disabled unless the repository variable `NPM_PUBLISH_ENABLED` equals the lowercase string `true`. With the variable unset or false, only CI runs: no version PR, npm publication, tags, or GitHub releases are created. Manual dispatch does not bypass the switch or the main-branch restriction.
+## Workflow architecture
 
-Once enabled, pinned Changesets Action v2 sub-actions and CLI v3 select one path:
+`.github/workflows/publish.yml` handles main pushes and manual runs on main. It first calls reusable `check.yml`, which runs `pnpm check` and `pnpm pack:check` on Windows and Linux. Pull requests, other branch pushes, and manual check runs use `check.yml` directly.
 
-1. Pending changesets: `version` runs `pnpm version-packages`, updates versions and changelogs, consumes the changesets, refreshes the pnpm lockfile, and creates or updates `chore(release): version packages`.
-2. After that PR merges, a new main push finds unpublished versions. `pack` builds them on a fresh runner, packs prebuilt output with lifecycle hooks disabled, and uploads the tarballs and publish plan.
-3. `publish` downloads the exact artifact by ID through the native Changesets Action, publishes its tarballs with provenance, pushes package tags, and creates GitHub releases. It does not rebuild or repeat CI.
-4. If neither pending changesets nor unpublished versions exist, no release work runs.
+Release jobs require the repository variable `NPM_PUBLISH_ENABLED` to equal `true`. Otherwise only CI runs. Preserve this gate and the main-branch restriction. An enabled run can publish unpublished manifest versions immediately when no pending changesets exist.
 
-Runs are serialized per ref and do not cancel an in-progress release. Only the version job can write PRs; only the publish job has OIDC permission for provenance. Checkout credentials are not persisted. The two plugins have no runtime dependency on each other, so the native Changesets publisher is used without the reference repository's additional internal-dependency guard.
+Pinned Changesets Action sub-actions select the next operation:
 
-## npm token and GitHub settings
+1. `version`: run `pnpm version-packages` and create or update the version PR.
+2. `pack`: build unpublished versions on a fresh runner and upload prebuilt tarballs with their publish plan. Disable lifecycle scripts only during packing to avoid duplicate builds.
+3. `publish`: download the packed artifact by ID, publish those exact tarballs, push package tags, and create GitHub releases. Do not rebuild, repack, or repeat CI in this job.
+4. No pending changesets or unpublished versions: skip release work.
 
-This workflow uses an npm granular access token. It can publish a new package as well as subsequent versions; this configuration does not require an initial local publication.
+Serialize runs per Git ref without cancelling active releases. Keep checkout credentials unpersisted and job permissions limited to their responsibilities. The plugins currently have no runtime dependency on each other; reassess publication ordering if internal runtime dependencies are introduced.
 
-1. Sign in to npm as an account allowed to publish under `@shinku-ever`. Open the avatar menu, **Access Tokens → Generate New Token**.
-2. Give the token a descriptive name and an expiry. Under **Packages and scopes**, grant **Read and write (publish and stage)**, or the equivalent publish-capable read/write permission. Limit it to these two packages when they already exist; for new packages, select the `@shinku-ever` scope so first publication is permitted. Organization administration access is not needed.
-3. Enable **Bypass two-factor authentication** for unattended publication. A stage-only or read-only token cannot run this workflow. If an existing package disallows token publishing in its Publishing access settings, a granular token cannot override that setting. Do not restrict the token to your PC's IP: GitHub-hosted runners publish from other addresses.
-4. Copy the token into GitHub repository **Settings → Secrets and variables → Actions → Secrets → New repository secret**. Name it exactly `NPM_TOKEN`. Never put its value in a tracked file or in chat. `setup-node` creates runner-local npm configuration; only the credential check and publish step receive `NODE_AUTH_TOKEN` from that secret.
-5. Under **Settings → Actions → General → Workflow permissions**, enable **Allow GitHub Actions to create and approve pull requests**. Jobs declare their own read/write permissions.
-6. For automatically triggered CI on version PRs, create a fine-grained GitHub PAT limited to `Gh-Shinku/dsh-plugins`, with repository **Contents: Read and write** and **Pull requests: Read and write**, and store it as `PAT_TOKEN` in repository Actions secrets. It is a GitHub credential, separate from npm's token. If branch policies demand more permissions, follow those policies rather than bypassing protection.
+## Authentication constraints
 
-Without `PAT_TOKEN`, versioning falls back to the built-in `GITHUB_TOKEN`. PRs created with it do not automatically trigger other workflows. In that case manually run **Check** on the generated version PR branch and verify the exact commit before merging; protected-branch requirements may still require a PAT or GitHub App that triggers PR checks.
+The native Changesets publisher detects the pnpm workspace and uses pnpm's OIDC-capable publisher. Preserve `id-token: write`, GitHub-hosted runners, the npm registry, and provenance in the publish job. Use `PNPM_CONFIG_*` settings for pnpm's native publisher. Keep static npm tokens and generated token-based authentication files out of this flow.
 
-Repository settings and secrets are not changed by committing these files. Official references: [npm token creation](https://docs.npmjs.com/creating-and-viewing-access-tokens/), [npm publishing authentication](https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/), and [Changesets version action](https://github.com/changesets/action/tree/ae32849d5ba541f9ae29e40e22a623bc13562f51/version).
+npm trusted publisher bindings refer to this repository's `publish.yml`. Renaming the workflow, changing the repository, introducing a GitHub environment, or moving publication into a reusable workflow requires reviewing the external bindings. Editing repository files does not update those bindings.
 
-## Enable a release later
+`PAT_TOKEN` is optional and used only for version PRs; npm authentication uses OIDC. Without it, versioning falls back to `GITHUB_TOKEN`, whose generated PRs do not automatically trigger CI. Do not assume a generated version PR has passing checks; inspect checks for its exact commit and respect branch requirements.
 
-Keep `NPM_PUBLISH_ENABLED` absent or false while preparing credentials. Adding `NPM_TOKEN` alone does not enable releases.
+See [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/), [pnpm's GitHub OIDC implementation](https://github.com/pnpm/pnpm/blob/v11.6.0/releasing/commands/src/publish/oidc/idToken.ts), and the [Changesets Action](https://github.com/changesets/action/tree/ae32849d5ba541f9ae29e40e22a623bc13562f51) when changing authentication or artifact publication.
 
-When publication is explicitly approved, review `pnpm changeset:status`, then add an Actions **repository variable** named `NPM_PUBLISH_ENABLED` with value `true`. The next main push or manual **Version or publish packages** run on `main` starts release automation. Setting the variable alone does not start a run. If there are no pending changesets, a run can publish currently unpublished manifest versions immediately; enabling is not just a version-PR preview.
+## Validation and recovery
 
-Review and merge the version PR when ready. You may accumulate several changesets before merging. Return the variable to `false` to prevent future release jobs; this does not stop a publish step already running.
+Validate workflow syntax, inspect changeset status, and exercise versioning and packing in a disposable fixture. Never dispatch an enabled release workflow solely to validate configuration. Local validation does not prove live OIDC authentication or npm publication.
 
-## Daily changes and recovery
-
-Run `pnpm changeset` for a change that affects published plugin behavior. Use `pnpm changeset:status` to inspect the plan. Keep versioning in the version PR; `pnpm version-packages` changes real manifests, changelogs, and the lockfile and should not be run on the working checkout merely to validate configuration.
-
-Publication is not atomic. If one package succeeds and another fails, inspect npm versions, workflow logs, tags, and GitHub releases before retrying. A new run computes a fresh plan for unpublished versions. It may not repair missing GitHub releases or tags for versions already on npm. Never reuse a published version for changed contents; record a corrective release instead. Tags, releases, and live publication require explicit authorization.
-
-The setup can be validated using local changeset status, a disposable version/pack fixture, and the normal checks. Do not dispatch an enabled release workflow merely to test configuration.
+Publication is not atomic. After a failed run, inspect npm versions, logs, tags, and GitHub releases before proposing a retry. A new run computes a fresh unpublished-version plan but may not repair missing tags or GitHub releases for versions already on npm. Never reuse a published version for changed contents; prepare a corrective changeset. Recovery that publishes or modifies external release state still requires explicit authorization.

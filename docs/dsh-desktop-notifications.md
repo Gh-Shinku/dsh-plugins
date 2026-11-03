@@ -6,7 +6,7 @@
 
 In Harness desktop's plugin manager, install `@shinku-ever/dsh-desktop-notifications` from npm once a package has been published, or select a locally packed `.tgz` archive. For local development, run `pnpm build` and `pnpm pack:check` at the repository root; the archive is written under `.artifacts/`.
 
-Restart or reload the desktop client when the native plugin manager requests it. Installing the plugin enables notifications immediately on client activation; there is no settings page, switch, or test button. Package publication is manual.
+Restart or reload the desktop client when the native plugin manager requests it. Installing the plugin enables notifications immediately on client activation; there is no settings page, switch, or test button. See the [release workflow](./release-workflow.md) for publication; automation is disabled by default.
 
 ## Use
 
@@ -39,7 +39,7 @@ Opened top-level sessions are observed as soon as a native consumer retains them
 
 ## 手动验收
 
-在 Harness desktop 的插件管理器中导入 `.artifacts/shinku-ever-dsh-desktop-notifications-0.1.1.tgz`，按提示重载客户端。
+在 Harness desktop 的插件管理器中导入 `.artifacts/shinku-ever-dsh-desktop-notifications-0.0.1.tgz`，按提示重载客户端。
 
 1. 安装后重启 Harness desktop，无需打开设置或手动启用；确认没有“桌面通知”设置页。
 2. 启动任务后切到其他应用或最小化 Harness，确认完成、失败及等待审批／回答／计划确认时分别出现通知，正文只有状态。
