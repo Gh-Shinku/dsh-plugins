@@ -16,11 +16,13 @@
     "check": "pnpm build && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "dev": "node scripts/dev.mjs",
     "pack:check": "node scripts/pack-check.mjs",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "changeset:status": "changeset status --verbose",
+    "version-packages": "changeset version && pnpm install --lockfile-only --ignore-scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
-    "@changesets/cli": "^2.29.7",
+    "@changesets/cli": "^3.0.3",
     "@deepseek-ai/cordis": "~4.0.5",
     "@deepseek-ai/cordis-plugin-loader": "~1.0.6",
     "@deepseek-ai/dsh-agent": "0.2.1-rc.5",

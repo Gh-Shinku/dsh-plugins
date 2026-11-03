@@ -18,7 +18,7 @@ pnpm check
 pnpm pack:check
 ```
 
-Root commands provide formatting, linting, typechecking, tests, builds, and package verification. CI runs the checks on Windows and Linux. `pnpm changeset` records independently versioned package changes; npm publication is manual.
+Root commands provide formatting, linting, typechecking, tests, builds, and package verification. CI runs the checks on Windows and Linux. `pnpm changeset` records independently versioned package changes. See the [release workflow](./docs/release-workflow.md) for version PRs, npm credentials, and enabling publication; release automation is disabled by default.
 
 ## Layout
 
