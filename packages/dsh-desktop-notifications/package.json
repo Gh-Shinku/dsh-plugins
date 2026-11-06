@@ -1,6 +1,6 @@
 {
   "name": "@shinku-ever/dsh-desktop-notifications",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Background task and interaction notifications for DeepSeek Harness desktop",
   "type": "module",
   "license": "MIT",
