@@ -16,9 +16,9 @@ In Harness desktop's plugin manager, install `@shinku-ever/dsh-desktop-notificat
 
 Foreground events and manual cancellations do not produce notifications. Disable or uninstall the plugin through the native plugin manager to stop delivery. See the [usage guide](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-desktop-notifications.md#use) for notification behavior.
 
-## Compatibility
+## Usage notes
 
-Targets DeepSeek Harness **0.2.2-rc.1** with Node.js **24.9.0 or later**. Requires the Desktop client to remain running and connected; the ordinary Web client is inactive. System notification permissions, Do Not Disturb, and window focus policies still apply. See [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-desktop-notifications.md#limits).
+Requires the Desktop client to remain running and connected; notifications are unavailable in the Web client. System notification permissions, Do Not Disturb, and window focus policies still apply. See [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-desktop-notifications.md#limits).
 
 ## License
 
