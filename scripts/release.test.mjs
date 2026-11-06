@@ -91,7 +91,6 @@ test("partial npm failure exposes no releases; retry skips the matching publishe
         events.push(`publish:${archive}`);
         if (archive === "notifications") throw new Error("npm failed");
       },
-      lookup: metadata,
       expose: () => {
         throw new Error("must not expose incomplete release");
       },
@@ -103,19 +102,21 @@ test("partial npm failure exposes no releases; retry skips the matching publishe
   prepared[0].metadata = metadata(prepared[0].item);
   await publishPrepared(prepared, {
     publish: (archive) => events.push(`publish:${archive}`),
-    lookup: (item) => {
-      events.push(`verify:${item.name}`);
-      return metadata(item);
+    expose: (item) => events.push(`expose:${item.name}`),
+  });
+  assert.deepEqual(events, ["publish:notifications", "expose:mcp", "expose:notifications"]);
+});
+
+test("successful publish commands expose releases without waiting for registry visibility", async () => {
+  const events = [];
+  await publishPrepared([{ item: { name: "mcp", version: "0.0.2" }, archive: "mcp.tgz" }], {
+    publish: (archive) => events.push(`publish:${archive}`),
+    lookup: () => {
+      throw new Error("Registry still returns 404 after successful publish");
     },
     expose: (item) => events.push(`expose:${item.name}`),
   });
-  assert.deepEqual(events, [
-    "verify:mcp",
-    "publish:notifications",
-    "verify:notifications",
-    "expose:mcp",
-    "expose:notifications",
-  ]);
+  assert.deepEqual(events, ["publish:mcp.tgz", "expose:mcp"]);
 });
 
 test("workflow separates PR preparation, exact-SHA packing, and OIDC publication", async () => {

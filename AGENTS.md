@@ -6,11 +6,17 @@
 - Target the Harness version declared in package manifests and verify the packed runtime against it.
 - Keep host code out of browser imports and keep session policy enforcement on the host.
 
+## Validation
+
+- Run only tests and checks relevant to the current changes. Use targeted tests for affected behavior, build/type checks for affected code, and package verification when runtime packaging or compatibility is affected. Run the full `pnpm check` and `pnpm pack:check` suites only when the scope of the changes warrants them.
+- Reuse successful local validation results while the code, dependencies, and configuration they cover remain unchanged. Do not repeat full checks after unrelated edits or documentation-only changes. Rerun checks when a relevant change or failure invalidates their results.
+- For documentation-only changes, review the diff and check relevant formatting and links; do not run plugin tests, builds, or package verification. Report what was checked and any relevant validation not performed.
+
 ## Git Delivery
 
 - Start each new task on a fresh `<type>/` branch from the latest `origin/main`; never commit or push directly to `main`.
 - Without further human approval, agents may edit, validate, and prepare a local delivery on the new task branch. Do not commit until the user explicitly authorizes it. Preserve unrelated changes and exclude credentials, local environment files, and generated artifacts.
-- Inspect staged changes before committing; run `pnpm check` and `pnpm pack:check` before committing or claiming completion.
+- Inspect staged changes before committing and complete the relevant validation described above before committing or claiming completion.
 - When implementation and checks are ready, run `pnpm cd:local` to install both current plugins into dsh Desktop, after the user has fully quit Desktop and authorized installation. Explicitly ask the user to reopen Desktop, test, and accept the delivery. Provide the source revision and uncommitted status, artifact paths, test steps, and limitations. See `docs/local-cd.md` and `docs/release-workflow.md`.
 - Stop at the local acceptance handoff. Passing automated checks, elapsed time, silence, or an earlier task's approval is not acceptance. Do not push, open a PR, merge, or trigger GitHub CD before the user explicitly confirms this task's delivery.
 - After explicit acceptance and commit authorization, push the task branch, open an ordinary PR to `main`, and merge only after required checks and reviews pass, respecting branch protection. Ordinary PR acceptance does not authorize a version PR merge, npm publication, tags, or GitHub releases. Obtain separate explicit approval of the release packages, versions, and source revision before merging a Release Please version PR or enabling publication.

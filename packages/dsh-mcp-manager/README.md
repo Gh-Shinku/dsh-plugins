@@ -16,9 +16,9 @@ In Harness's plugin manager, install `@shinku-ever/dsh-mcp-manager` from npm int
 
 Session changes do not edit the saved profile template. The plugin uses your existing Harness MCP configuration; it does not install or configure servers. See the [usage and configuration guide](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-mcp-manager.md) for defaults, persistence, and access behavior.
 
-## Compatibility
+## Usage notes
 
-Targets DeepSeek Harness **0.2.2-rc.1** with Node.js **24.9.0 or later**. Supports the native Web and Desktop interfaces in English and Chinese. Selection applies to whole servers. Disabling the plugin removes its session access enforcement; see [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-mcp-manager.md#limits).
+Supports the Web and Desktop interfaces in English and Chinese. Selection applies to whole servers. Disabling the plugin removes its session access enforcement; see [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-mcp-manager.md#limits).
 
 ## License
 
