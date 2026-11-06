@@ -1,6 +1,6 @@
 {
   "name": "@shinku-ever/dsh-mcp-manager",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Session MCP profiles and hierarchical tool browsing for DeepSeek Harness",
   "type": "module",
   "license": "MIT",

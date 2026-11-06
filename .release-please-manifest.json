@@ -1,4 +1,4 @@
 {
-  "packages/dsh-mcp-manager": "0.0.1",
-  "packages/dsh-desktop-notifications": "0.0.1"
+  "packages/dsh-mcp-manager": "0.0.2",
+  "packages/dsh-desktop-notifications": "0.0.2"
 }
