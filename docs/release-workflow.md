@@ -1,42 +1,41 @@
 # Release workflow
 
-Publishable plugins under `packages/*` use independent Changesets versions. The root package is private and is neither versioned nor tagged.
+Release Please maintains one combined version PR for the independently versioned plugins under `packages/*`. The private root is not a release component. Ordinary PRs record release intent through Conventional Commits; there are no changeset files or automatic version commits to main.
 
-## Development
+## Ordinary delivery
 
-- Add a changeset with `pnpm changeset` when changing published plugin behavior. Repository-only documentation, tests, and tooling may omit one.
-- Inspect pending releases with `pnpm changeset:status`.
-- Keep version changes in the generated version PR. `pnpm version-packages` updates manifests, changelogs, and the lockfile and consumes pending changesets; validate it in a disposable fixture rather than the working checkout.
-- Run `pnpm check` and `pnpm pack:check` before delivery. Inspect packed README content, runtime entrypoints, and declared Harness compatibility when changing package contents.
-- Do not enable publication, dispatch release workflows, publish packages, or create tags or releases without explicit authorization.
+Use `fix` for a patch, `feat` for a feature, and `!` or a `BREAKING CHANGE` footer for breaking changes. Under the configured pre-1.0 policy, features and breaking changes bump minor; fixes bump patch. After 1.0, breaking changes bump major. Prefer squash-merging an ordinary PR with a final user-facing Conventional Commit title. Review all commits if preserving a multi-commit merge instead.
 
-## Workflow architecture
+Only configured package paths contribute to their releases. Shared tooling, CI, and root documentation normally do not cause a package release. If a root change changes shipped behavior, include the corresponding package change and release intent. A commit touching both plugins can contribute to both release notes; scope text alone does not select a package. Keep unrelated work in separate PRs.
 
-`.github/workflows/publish.yml` handles main pushes and manual runs on main. It first calls reusable `check.yml`, which runs `pnpm check` and `pnpm pack:check` on Windows and Linux. Pull requests, other branch pushes, and manual check runs use `check.yml` directly.
+Do not commit until authorized. Run `pnpm check` and `pnpm pack:check`. For runtime acceptance, obtain authorization, have the user fully quit Desktop, and run `pnpm cd:local`; ask the user to reopen Desktop and test both plugins. See [local CD](./local-cd.md). Tooling-only changes can use `pnpm cd:local --prepare` to verify archives without changing the live profile. Report source revision, uncommitted status, receipt, artifacts, and limitations.
 
-Release jobs require the repository variable `NPM_PUBLISH_ENABLED` to equal `true`. Otherwise only CI runs. Preserve this gate and the main-branch restriction. An enabled run can publish unpublished manifest versions immediately when no pending changesets exist.
+Acceptance of an ordinary delivery authorizes only the agreed ordinary PR work. It does not authorize merging the version PR or publishing packages. After required checks and reviews, ordinary PRs may merge while npm publication remains disabled.
 
-Pinned Changesets Action sub-actions select the next operation:
+## Version PR and release approval
 
-1. `version`: run `pnpm version-packages` and create or update the version PR.
-2. `pack`: build unpublished versions on a fresh runner and upload prebuilt tarballs with their publish plan. Disable lifecycle scripts only during packing to avoid duplicate builds.
-3. `publish`: download the packed artifact by ID, publish those exact tarballs, push package tags, and create GitHub releases. Do not rebuild, repack, or repeat CI in this job.
-4. No pending changesets or unpublished versions: skip release work.
+`release-please-config.json` defines the two components and their tag prefixes; `.release-please-manifest.json` tracks versions. On main pushes, `.github/workflows/publish.yml` first runs Windows/Linux checks, then Release Please creates or updates the combined version PR. Preparation runs even when `NPM_PUBLISH_ENABLED` is unset. Package versions and changelogs are changed on the version PR branch until that PR is merged. Release Please does not automatically maintain pnpm's lockfile; run `pnpm install --frozen-lockfile` on the version PR, and update its lockfile explicitly if needed. These packages currently have no workspace dependencies on each other.
 
-Serialize runs per Git ref without cancelling active releases. Keep checkout credentials unpersisted and job permissions limited to their responsibilities. The plugins currently have no runtime dependency on each other; reassess publication ordering if internal runtime dependencies are introduced.
+Before merging a version PR, show the user its exact head SHA, package/version plan, changelog, and validation results. Obtain separate explicit release authorization. Never auto-merge it because an ordinary task was accepted. Keep the npm switch off until the npm Trusted Publisher bindings and this release have been approved. Enabling it persists across future main pushes; the separate version-PR approval gate applies to every release.
 
-## Authentication constraints
+The first migration uses the existing npm versions `0.0.1` as manifest baselines and the initial release preparation commit `fdb8649b041a74e2d498c7ddae1f3998ec0ef3dd` as the bootstrap boundary. This excludes the original feature commits; subsequent compatibility fixes produce the user-selected `0.0.2` release plan. Review the first version PR against [the seven preserved legacy records](./release-please-migration.md) and npm history. Subsequent releases use Release Please's normal release boundaries. No version is published by the tooling migration alone.
 
-The native Changesets publisher detects the pnpm workspace and uses pnpm's OIDC-capable publisher. Preserve `id-token: write`, GitHub-hosted runners, the npm registry, and provenance in the publish job. Use `PNPM_CONFIG_*` settings for pnpm's native publisher. Keep static npm tokens and generated token-based authentication files out of this flow.
+## Publication and matching GitHub releases
 
-npm trusted publisher bindings refer to this repository's `publish.yml`. Renaming the workflow, changing the repository, introducing a GitHub environment, or moving publication into a reusable workflow requires reviewing the external bindings. Editing repository files does not update those bindings.
+Only an approved merged version PR may produce matching component tags such as `dsh-mcp-manager-v0.1.0`. With publication enabled, Release Please creates draft GitHub releases and tags. Its write-capable job lists drafts and selects only releases tagged at the workflow's exact SHA; ordinary main commits without matching tags select nothing. The pack job receives this plan as an artifact and needs only read permissions. Manual dispatch at a later SHA is not a recovery mechanism for an older release.
 
-`PAT_TOKEN` is optional and used only for version PRs; npm authentication uses OIDC. Without it, versioning falls back to `GITHUB_TOKEN`, whose generated PRs do not automatically trigger CI. Do not assume a generated version PR has passing checks; inspect checks for its exact commit and respect branch requirements.
+The pack job builds at the selected SHA and runs `pnpm pack:check`. It uploads the verified tarballs and release plan as an artifact. The publish job downloads those exact files, validates package versions and tag SHAs again, and publishes only the selected archives using pnpm's native OIDC publisher. It verifies npm's SHA-512 integrity against the archive. Only after all selected npm packages verify successfully does it expose the corresponding GitHub releases. npm version, GitHub tag, and source SHA stay aligned. npm and GitHub are separate services, so publication cannot be atomic across both.
 
-See [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/), [pnpm's GitHub OIDC implementation](https://github.com/pnpm/pnpm/blob/v11.6.0/releasing/commands/src/publish/oidc/idToken.ts), and the [Changesets Action](https://github.com/changesets/action/tree/ae32849d5ba541f9ae29e40e22a623bc13562f51) when changing authentication or artifact publication.
+The release job keeps `publish.yml` as the npm Trusted Publisher workflow identity, uses GitHub-hosted runners, and grants `id-token: write` only to the publish job. Registry and provenance are passed as `PNPM_CONFIG_*`. No static npm token is used. npm package ownership and Trusted Publisher bindings must already be configured; local checks do not prove live authentication.
+
+`PAT_TOKEN` is an optional GitHub token for Release Please, not npm. Prefer a suitably scoped bot token so its version PR triggers CI. Falling back to `GITHUB_TOKEN` can prevent automatic PR checks; explicitly dispatch Check on the release branch, inspect checks at its exact head, and never bypass protection. Repository settings must permit Actions to create PRs. Introducing a GitHub environment or renaming the workflow requires reviewing npm's external bindings.
 
 ## Validation and recovery
 
-Validate workflow syntax, inspect changeset status, and exercise versioning and packing in a disposable fixture. Never dispatch an enabled release workflow solely to validate configuration. Local validation does not prove live OIDC authentication or npm publication.
+`pnpm release:check` runs offline tests of the real Release Please strategy, component routing, version/changelog updates, workflow structure, and release selection/integrity guards. It runs inside `pnpm check`. Never validate by dispatching an enabled live release.
 
-Publication is not atomic. After a failed run, inspect npm versions, logs, tags, and GitHub releases before proposing a retry. A new run computes a fresh unpublished-version plan but may not repair missing tags or GitHub releases for versions already on npm. Never reuse a published version for changed contents; prepare a corrective changeset. Recovery that publishes or modifies external release state still requires explicit authorization.
+`pnpm release:preview` reads committed local history from the migration boundary and writes a proposed package/version plan, changelog entries, and package manifest updates to `.artifacts/release-preview/plan.json`. It makes no GitHub or npm writes and does not change source files. It is an offline strategy preview, not a substitute for reviewing the actual bot PR, which uses GitHub history and the latest release boundaries.
+
+After a failure, keep the original run and artifact. Rerun failed jobs at the original SHA so the publish job reuses the original archives. Existing npm versions are skipped only when their integrity exactly matches those archives. Mismatched contents fail; never overwrite a published version or silently advance its number. If all jobs are rerun and the rebuilt archive differs, use the original artifact or obtain approval for a corrective release. A visibility delay can fail verification; retry after the registry propagates. GitHub drafts remain private until all selected packages pass npm verification. If exposing a GitHub release fails, the npm versions may already exist; rerunning the failed publish job finishes the missing step without republishing matching versions. Recovery with external writes still requires authorization.
+
+References: [Release Please](https://github.com/googleapis/release-please), [manifest configuration](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md), [Action credentials](https://github.com/googleapis/release-please-action#other-actions-on-release-please-prs), [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/).
