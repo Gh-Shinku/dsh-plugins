@@ -15,6 +15,7 @@
     "test": "vitest run",
     "check": "pnpm build && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "dev": "node scripts/dev.mjs",
+    "cd:local": "node scripts/local-cd.mjs",
     "pack:check": "node scripts/pack-check.mjs",
     "changeset": "changeset",
     "changeset:status": "changeset status --verbose",
