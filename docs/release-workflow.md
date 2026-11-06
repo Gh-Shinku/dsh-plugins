@@ -6,9 +6,21 @@ Publishable plugins under `packages/*` use independent Changesets versions. The 
 
 - Add a changeset with `pnpm changeset` when changing published plugin behavior. Repository-only documentation, tests, and tooling may omit one.
 - Inspect pending releases with `pnpm changeset:status`.
-- Keep version changes in the generated version PR. `pnpm version-packages` updates manifests, changelogs, and the lockfile and consumes pending changesets; validate it in a disposable fixture rather than the working checkout.
+- Keep version changes in the generated version PR. `pnpm version-packages` updates manifests, changelogs, and the lockfile and consumes pending changesets; validate it in a disposable fixture rather than the working checkout. Include the resulting package/version plan and any pre-existing pending changesets in the acceptance handoff.
 - Run `pnpm check` and `pnpm pack:check` before delivery. Inspect packed README content, runtime entrypoints, and declared Harness compatibility when changing package contents.
-- Do not enable publication, dispatch release workflows, publish packages, or create tags or releases without explicit authorization.
+- Until the user accepts this task's local delivery, agents may commit only on its new branch. Do not push, open a PR, merge, enable publication, dispatch release workflows, publish packages, or create tags or releases.
+
+## Local delivery and human acceptance
+
+After implementation, run `pnpm check` and `pnpm pack:check`, inspect the diff, and commit the task on its new branch. These commands build and verify both plugin archives under `.artifacts/`. Generated artifacts stay uncommitted.
+
+Launch a local delivery suitable for the change. For MCP manager changes, `pnpm dev -- --fixtures` starts the local Web app with synthetic MCP servers under the isolated `.artifacts/dsh-home` profile. Record the actual listening URL and verify readiness before handing it off. This helper uses the local MCP source package; also provide the verified tarball for installation testing. Desktop notifications require a running Desktop client; a Web preview cannot validate native notification delivery. Use an isolated Desktop profile for that acceptance test, and never install into the user's live profile without separate authorization. Documentation-only changes may deliver a local document preview with the files and review steps instead of launching Harness.
+
+Ask the user to test and explicitly accept the delivery. Provide the exact task commit, local URL or preview, archive paths when applicable, checks run, manual test steps, and known limitations. For an npm delivery, also show which packages and versions GitHub CD will publish. Leave the local preview available for review and stop before remote changes. Silence and automated success never grant approval.
+
+When the user explicitly accepts this delivery, push the accepted branch, open its PR, wait for required checks and reviews, and merge the task's commits into `main`. That acceptance also authorizes GitHub CD for the disclosed npm release plan, including merging its generated version PR after checking its contents and CI. If the generated version PR contains unrelated pending changesets, unexpected versions, or additional changes, obtain acceptance of the revised plan before merging it. Any material code changes after acceptance require a new local delivery and acceptance.
+
+Keep `NPM_PUBLISH_ENABLED` disabled until acceptance of a concrete release plan explicitly authorizes enabling it. Use the GitHub workflow for publication, never a local `npm publish`. Enabling the variable is persistent: once enabled, later main pushes can publish, so every future task must follow this acceptance gate. Do not weaken CI, review requirements, branch protection, or the workflow's main-only restriction. Report the PR, task and merge commits, GitHub CD status, and verified npm versions; identify any blocker instead of claiming publication from a successful merge alone.
 
 ## Workflow architecture
 
