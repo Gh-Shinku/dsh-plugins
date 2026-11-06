@@ -24,11 +24,11 @@ const fakeGitHub = {
   },
 };
 
-export async function preview(commits) {
+export async function preview(commits, baselineVersions) {
   // Exercise Release Please's real config parser, routing, version strategy, and file updaters.
   const manifest = await Manifest.fromManifest(fakeGitHub, "main", undefined, undefined, { logger });
   const config = JSON.parse(await read("release-please-config.json"));
-  const versions = JSON.parse(await read(".release-please-manifest.json"));
+  const versions = baselineVersions ?? JSON.parse(await read(".release-please-manifest.json"));
   const split = new CommitSplit({ packagePaths: Object.keys(config.packages) }).split(commits);
   const proposals = [];
   for (const [path, settings] of Object.entries(manifest.repositoryConfig)) {
