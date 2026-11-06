@@ -7,7 +7,7 @@ import { appendPluginRecord, pluginRecordOf } from "@deepseek-ai/dsh-session";
 import type {} from "@deepseek-ai/dsh-settings";
 import type {} from "@deepseek-ai/dsh-system-prompt";
 import type { ToolRestriction } from "@deepseek-ai/dsh-tools";
-import { renderToolsSdk, renderToolsSdkPy } from "@deepseek-ai/dsh-tools";
+import { renderToolsSdk, renderToolsSdkPy } from "@deepseek-ai/dsh-tool-executor-ptc";
 import { bindTypertRemote, Remote, RemoteError } from "@deepseek-ai/dsh-typert-protocol";
 import z from "@deepseek-ai/schemastery";
 import { readCatalog } from "./catalog.ts";
@@ -116,17 +116,19 @@ export class McpManager extends Service {
         const runtime = agent.ctx.get("ptcRuntime");
         if (!runtime) throw new Error("MCP filtering requires the active PTC runtime");
         const schemas = this.owner.tools
-          .schemas(agent)
+          .schemas(agent, context.toolSet)
           .filter((s) => s.name !== "run_code" && allowed(s.name))
           .map((s) => {
-            const definition = this.owner.tools.get(s.name, agent);
+            const definition = this.owner.tools.get(s.name, agent, context.toolSet);
             if (!definition) throw new Error(`Tool disappeared during MCP schema projection: ${s.name}`);
             return { ...s, output: definition.output.schema };
           });
         section.text =
           runtime.language === "python" ? renderToolsSdkPy(schemas) : renderToolsSdk(schemas, runtime.programFormat);
       }
-      return { ...assembly, sections, tools: assembly.tools.filter((tool) => allowed(tool.name)) };
+      // Tool declarations belong to the active executor; native restrictions
+      // filter inherited tools and the guard below protects scoped registrations.
+      return { ...assembly, sections };
     });
     ctx.effect(() =>
       ctx.tools.guard((exec) => {

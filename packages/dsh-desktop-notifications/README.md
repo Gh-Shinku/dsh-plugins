@@ -18,7 +18,7 @@ Foreground events and manual cancellations do not produce notifications. Disable
 
 ## Compatibility
 
-Targets DeepSeek Harness **0.2.1-rc.5** with Node.js **24.9.0 or later**. Requires the Desktop client to remain running and connected; the ordinary Web client is inactive. System notification permissions, Do Not Disturb, and window focus policies still apply. See [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-desktop-notifications.md#limits).
+Targets DeepSeek Harness **0.2.2-rc.1** with Node.js **24.9.0 or later**. Requires the Desktop client to remain running and connected; the ordinary Web client is inactive. System notification permissions, Do Not Disturb, and window focus policies still apply. See [limitations](https://github.com/Gh-Shinku/dsh-plugins/blob/main/docs/dsh-desktop-notifications.md#limits).
 
 ## License
 

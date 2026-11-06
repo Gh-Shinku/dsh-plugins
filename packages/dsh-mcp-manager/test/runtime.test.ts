@@ -10,7 +10,10 @@ import { type PtcRunRequest, type PtcRunResult, type PtcRunSpec, PtcRuntime } fr
 import SessionStore, { SessionId } from "@deepseek-ai/dsh-session";
 import SessionProjections from "@deepseek-ai/dsh-session-projection";
 import SystemPrompt from "@deepseek-ai/dsh-system-prompt";
-import ToolRuntime, { defineContentToolFixture } from "@deepseek-ai/dsh-tools";
+import * as NativeExecutor from "@deepseek-ai/dsh-tool-executor-native";
+import { PtcExecutor } from "@deepseek-ai/dsh-tool-executor-ptc";
+import { defineContentToolFixture, executeModelToolFixture, executeToolFixture } from "@deepseek-ai/dsh-tool-testkit";
+import ToolRuntime from "@deepseek-ai/dsh-tools";
 import { afterEach, expect, it } from "vitest";
 import type { ProfileDocument } from "../src/contracts.ts";
 import { McpManager } from "../src/manager.ts";
@@ -35,6 +38,7 @@ async function setup(document: ProfileDocument = { profiles: [], defaultProfileI
   contexts.push(ctx);
   await ctx.plugin(SystemPrompt);
   await ctx.plugin(ToolRuntime);
+  await ctx.plugin(NativeExecutor);
   await ctx.plugin(LlmRuntime);
   await ctx.plugin(SessionStore);
   await ctx.plugin(SessionProjections);
@@ -72,7 +76,7 @@ async function mount(ctx: Context, document: ProfileDocument = { profiles: [], d
 
 const choice = (servers: string[]) => ({ version: 1 as const, profileId: "", profileName: "", servers });
 const call = (ctx: Context, agent: ReturnType<Context["agents"]["list"]>[number], name: string, args: object = {}) =>
-  ctx.tools.execute({
+  executeModelToolFixture(ctx, {
     callId: ToolCallId(crypto.randomUUID()),
     name,
     arguments: args,
@@ -134,7 +138,7 @@ it("allows MCP changes after a turn starts and refreshes declarations, guards an
   expect(ctx.shinkuMcpManager.selection(restored.agent.id).selection.servers).toEqual(["b"]);
 });
 
-it("filters and guards session-local MCP registrations, while browsing unselected global tools", async () => {
+it("guards session-local MCP registrations without rewriting executor-owned declarations", async () => {
   const ctx = await setup();
   const handle = await ctx.agents.create({ sessionId: SessionId("local") });
   handle.agent.ctx.tools.register(
@@ -147,7 +151,8 @@ it("filters and guards session-local MCP registrations, while browsing unselecte
   );
   ctx.shinkuMcpManager.select(handle.agent.id, choice(["a"]));
   const prompt = await ctx.systemPrompt.assemble({ scope: handle.agent });
-  expect(prompt.tools.some((t) => t.name === "mcp__b__scoped")).toBe(false);
+  // Native restrictions exempt tools registered directly on the viewing scope.
+  expect(prompt.tools.some((t) => t.name === "mcp__b__scoped")).toBe(true);
   expect((await call(ctx, handle.agent, "mcp__b__scoped")).isError).toBe(true);
   expect(
     ctx.shinkuMcpManager
@@ -206,20 +211,23 @@ it("filters the PTC SDK and blocks nested programmatic dispatch to unselected sc
     }),
   );
   ctx.shinkuMcpManager.select(handle.agent.id, choice(["a"]));
-  const dispose = handle.agent.ctx.tools.presentAs("ptc");
+  const dispose = handle.agent.ctx.tools.setExecutor(new PtcExecutor(handle.agent.ctx));
   const assembly = await ctx.systemPrompt.assemble({ scope: handle.agent });
   const sdk = assembly.sections.find((s) => s.name === "tools:sdk")?.text;
   expect(sdk).toContain("mcp__a__echo");
   expect(sdk).not.toContain("mcp__b__echo");
   expect(sdk).not.toContain("mcp__b__scoped");
+  expect(assembly.tools.map((tool) => tool.name)).toEqual(["run_code"]);
   dispose();
+  // An unloaded scoped executor deliberately does not fall back to the root.
+  handle.agent.ctx.tools.setExecutor(new NativeExecutor.NativeToolExecutor(handle.agent.ctx));
   ctx.tools.register(
     defineContentToolFixture({
       name: "outer",
       description: "nested dispatch",
       parameters: {},
       async execute(_args, exec) {
-        const result = await ctx.tools.execute({
+        const result = await executeToolFixture(ctx, {
           callId: ToolCallId("nested"),
           name: "mcp__b__scoped",
           arguments: {},
@@ -248,6 +256,38 @@ it("restricts native MCP resource access and publishes only selected server name
   );
   expect(section?.text).toContain('["a"]');
   expect(section?.text).not.toContain('"b"');
+});
+
+it.each([false, true])("preserves step admission in the filtered PTC SDK (enabled=%s)", async (enabled) => {
+  const ctx = await setup();
+  await ctx.plugin(PresentationRuntime);
+  const { agent } = await ctx.agents.create({ sessionId: SessionId("conditional-ptc") });
+  ctx.tools.register(
+    defineContentToolFixture({
+      name: "mcp__a__conditional",
+      description: "step-conditional capability",
+      parameters: {},
+      execute: async () => [],
+    }),
+    { when: () => enabled },
+  );
+  ctx.shinkuMcpManager.select(agent.id, choice(["a"]));
+  agent.ctx.tools.setExecutor(new PtcExecutor(agent.ctx));
+  const toolSet = await ctx.tools.resolve({
+    agent,
+    modelSelection: { provider: "test", model: "test" },
+    signal: new AbortController().signal,
+  });
+  try {
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent, toolSet });
+    const sdk = assembly.sections.find((section) => section.name === "tools:sdk")?.text ?? "";
+    expect(sdk).toContain("mcp__a__echo");
+    expect(sdk.includes("mcp__a__conditional")).toBe(enabled);
+    expect(sdk).not.toContain("mcp__b__echo");
+    expect(assembly.tools.map((tool) => tool.name)).toEqual(["run_code"]);
+  } finally {
+    toolSet.dispose();
+  }
 });
 
 it("preserves started legacy sessions and leaves new sessions at the empty default", async () => {

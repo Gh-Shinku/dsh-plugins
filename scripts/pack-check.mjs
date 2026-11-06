@@ -40,7 +40,7 @@ run("tar", ["-xzf", archive, "-C", directory]);
 const packageRoot = resolve(directory, "package");
 const manifest = JSON.parse(await readFile(`${packageRoot}/package.json`, "utf8"));
 assert.equal(manifest.dsh.bundle.patch, "./cordis.patch.yml");
-assert.equal(manifest.engines.dsh, "0.2.1-rc.5");
+assert.equal(manifest.engines.dsh, "0.2.2-rc.1");
 for (const file of ["index.js", "typert.host.js", "typert.remote-client.js"]) {
   run(process.execPath, ["--check", `${packageRoot}/lib/${file}`]);
   const source = await readFile(`${packageRoot}/lib/${file}`, "utf8");
@@ -58,6 +58,11 @@ assert.equal(reflection.TYPERT.invocations.length, 6);
 const remote = await import(pathToFileURL(`${packageRoot}/lib/typert.remote-client.js`).href);
 assert.equal(Object.keys(remote.default.methods).length, 6);
 const require = createRequire(import.meta.url);
+for (const [peer, version] of Object.entries(manifest.peerDependencies)) {
+  if (!peer.startsWith("@deepseek-ai/dsh-")) continue;
+  assert.equal(version, manifest.engines.dsh, `Mismatched Harness peer ${peer}`);
+  assert.equal(require(`${peer}/package.json`).version, version, `Wrong installed Harness peer ${peer}`);
+}
 let browserExports;
 const platformRequests = new Set();
 runInNewContext(await readFile(`${packageRoot}/lib/client.js`, "utf8"), {
@@ -81,7 +86,7 @@ runInNewContext(await readFile(`${packageRoot}/lib/client.js`, "utf8"), {
 assert.equal(typeof browserExports.apply, "function");
 assert(platformRequests.has("@deepseek-ai/dsh-client-ui-primitives"));
 assert(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-commands"));
-assert.equal(manifest.peerDependencies["@deepseek-ai/dsh-client-ui-commands"], "0.2.1-rc.5");
+assert.equal(manifest.peerDependencies["@deepseek-ai/dsh-client-ui-commands"], "0.2.2-rc.1");
 assert(browserExports.inject.includes("commandUi"));
 const browserSource = await readFile(`${packageRoot}/lib/client.js`, "utf8");
 const primitiveBinding = browserSource.match(
@@ -121,7 +126,7 @@ await mkdir(notificationDirectory, { recursive: true });
 run("tar", ["-xzf", notificationArchive, "-C", notificationDirectory]);
 const notificationRoot = resolve(notificationDirectory, "package");
 const packedNotifications = JSON.parse(await readFile(`${notificationRoot}/package.json`, "utf8"));
-assert.equal(packedNotifications.engines.dsh, "0.2.1-rc.5");
+assert.equal(packedNotifications.engines.dsh, "0.2.2-rc.1");
 assert.equal(packedNotifications.dsh.bundle.patch, "./cordis.patch.yml");
 const notificationHost = await import(pathToFileURL(`${notificationRoot}/lib/index.js`).href);
 assert.equal(typeof notificationHost.default, "function");

@@ -52,6 +52,8 @@ Selection is server-level and can be adjusted throughout a conversation. There a
 
 The manager is an access-selection plugin, not an MCP process isolation mechanism. MCP processes and upstream state remain shared. Uninstalling or disabling the manager removes its enforcement; session records are intentionally ignorable by Harness without the plugin.
 
+Harness 0.2.2-rc.1 owns native tool declarations in the active executor. Native restrictions hide unselected inherited MCP tools. Tools registered directly on an agent remain visible in native declarations, but the manager's final host guard denies calls to unselected servers. PTC SDK text also excludes these unselected scoped tools. The manager uses the public PTC executor SDK renderers and leaves executor selection to Harness.
+
 ## Development
 
 `pnpm dev -- --fixtures` starts an isolated Harness profile under `.artifacts/dsh-home` with synthetic MCP servers. It requires `dsh` on PATH and does not install into the normal Desktop profile. Build again before restarting it after source changes.
