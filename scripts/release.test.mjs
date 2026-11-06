@@ -4,10 +4,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import YAML from "yaml";
 import { main, publishPrepared, releaseItem, verifyPublished } from "./release.mjs";
-import { preview } from "./release-preview.mjs";
+import { preview as previewFromHistory } from "./release-preview.mjs";
 
 const mcp = "packages/dsh-mcp-manager";
 const desktop = "packages/dsh-desktop-notifications";
+// Fixture expectations must not change when the real repository is released.
+const preview = (commits) => previewFromHistory(commits, { [mcp]: "0.0.1", [desktop]: "0.0.1" });
 const commit = (message, files) => ({ sha: "a".repeat(40), message, files });
 
 test("root-only feature tooling never creates plugin release proposals", async () => {
