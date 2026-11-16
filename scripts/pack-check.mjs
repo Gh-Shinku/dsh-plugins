@@ -7,6 +7,7 @@ import { runInNewContext } from "node:vm";
 import spawn from "cross-spawn";
 
 const artifacts = resolve(".artifacts");
+const harnessVersion = JSON.parse(await readFile("package.json", "utf8")).devDependencies["@deepseek-ai/dsh-agent"];
 await mkdir(artifacts, { recursive: true });
 const run = (command, args, cwd = process.cwd()) => {
   const result = spawn.sync(command, args, { cwd, encoding: "utf8" });
@@ -25,6 +26,7 @@ for (const required of [
   "lib/client.js",
   "lib/typert.host.js",
   "lib/typert.remote-client.js",
+  "lib/typert.remote-client.d.ts.map",
   "lib/types/index.d.ts",
   "cordis.patch.yml",
   "LICENSE",
@@ -40,7 +42,7 @@ run("tar", ["-xzf", archive, "-C", directory]);
 const packageRoot = resolve(directory, "package");
 const manifest = JSON.parse(await readFile(`${packageRoot}/package.json`, "utf8"));
 assert.equal(manifest.dsh.bundle.patch, "./cordis.patch.yml");
-assert.equal(manifest.engines.dsh, "0.2.2-rc.1");
+assert.equal(manifest.engines.dsh, harnessVersion);
 for (const file of ["index.js", "typert.host.js", "typert.remote-client.js"]) {
   run(process.execPath, ["--check", `${packageRoot}/lib/${file}`]);
   const source = await readFile(`${packageRoot}/lib/${file}`, "utf8");
@@ -86,7 +88,7 @@ runInNewContext(await readFile(`${packageRoot}/lib/client.js`, "utf8"), {
 assert.equal(typeof browserExports.apply, "function");
 assert(platformRequests.has("@deepseek-ai/dsh-client-ui-primitives"));
 assert(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-commands"));
-assert.equal(manifest.peerDependencies["@deepseek-ai/dsh-client-ui-commands"], "0.2.2-rc.1");
+assert.equal(manifest.peerDependencies["@deepseek-ai/dsh-client-ui-commands"], harnessVersion);
 assert(browserExports.inject.includes("commandUi"));
 const browserSource = await readFile(`${packageRoot}/lib/client.js`, "utf8");
 const primitiveBinding = browserSource.match(
@@ -113,6 +115,7 @@ for (const required of [
   "lib/client.js",
   "lib/types/index.d.ts",
   "lib/types/client/index.d.ts",
+  "lib/typert.remote-client.d.ts.map",
   "cordis.patch.yml",
   "README.md",
   "LICENSE",
@@ -126,7 +129,7 @@ await mkdir(notificationDirectory, { recursive: true });
 run("tar", ["-xzf", notificationArchive, "-C", notificationDirectory]);
 const notificationRoot = resolve(notificationDirectory, "package");
 const packedNotifications = JSON.parse(await readFile(`${notificationRoot}/package.json`, "utf8"));
-assert.equal(packedNotifications.engines.dsh, "0.2.2-rc.1");
+assert.equal(packedNotifications.engines.dsh, harnessVersion);
 assert.equal(packedNotifications.dsh.bundle.patch, "./cordis.patch.yml");
 const notificationHost = await import(pathToFileURL(`${notificationRoot}/lib/index.js`).href);
 assert.equal(typeof notificationHost.default, "function");

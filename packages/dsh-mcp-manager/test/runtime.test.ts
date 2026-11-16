@@ -182,9 +182,27 @@ it("inherits the exact selected snapshot into a child agent", async () => {
   const ctx = await setup();
   const parent = await ctx.agents.create({ sessionId: SessionId("parent") });
   ctx.shinkuMcpManager.select(parent.agent.id, choice(["b"]));
-  const child = await parent.agent.ctx.agents.create({ sessionId: SessionId("child"), parentAgent: parent.agent });
+  const child = await parent.agent.ctx.agents.create({
+    sessionId: SessionId("child"),
+    meta: { parentSession: parent.agent.id, origin: "subagent" },
+  });
   expect(ctx.shinkuMcpManager.selection(child.agent.id).selection.servers).toEqual(["b"]);
   expect((await call(ctx, child.agent, "mcp__a__echo")).isError).toBe(true);
+});
+
+it("inherits subagent selections from session lineage even when another context creates the agent", async () => {
+  const ctx = await setup();
+  const parent = await ctx.agents.create({ sessionId: SessionId("parent") });
+  const other = await ctx.agents.create({ sessionId: SessionId("other") });
+  ctx.shinkuMcpManager.select(parent.agent.id, choice(["b"]));
+  ctx.shinkuMcpManager.select(other.agent.id, choice(["a"]));
+  const child = await other.agent.ctx.agents.create({
+    sessionId: SessionId("child"),
+    meta: { parentSession: parent.agent.id, origin: "subagent" },
+  });
+  expect(ctx.shinkuMcpManager.selection(child.agent.id).selection.servers).toEqual(["b"]);
+  expect((await call(ctx, child.agent, "mcp__a__echo")).isError).toBe(true);
+  expect((await call(ctx, child.agent, "mcp__b__echo", { text: "inherited" })).isError).toBe(false);
 });
 
 class PresentationRuntime extends PtcRuntime {

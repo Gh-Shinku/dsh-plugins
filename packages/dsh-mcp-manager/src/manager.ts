@@ -6,8 +6,8 @@ import type { Session, SessionId } from "@deepseek-ai/dsh-session";
 import { appendPluginRecord, pluginRecordOf } from "@deepseek-ai/dsh-session";
 import type {} from "@deepseek-ai/dsh-settings";
 import type {} from "@deepseek-ai/dsh-system-prompt";
-import type { ToolRestriction } from "@deepseek-ai/dsh-tools";
 import { renderToolsSdk, renderToolsSdkPy } from "@deepseek-ai/dsh-tool-executor-ptc";
+import type { ToolRestriction } from "@deepseek-ai/dsh-tools";
 import { bindTypertRemote, Remote, RemoteError } from "@deepseek-ai/dsh-typert-protocol";
 import z from "@deepseek-ai/schemastery";
 import { readCatalog } from "./catalog.ts";
@@ -231,7 +231,8 @@ export class McpManager extends Service {
 
   private attach(agent: Agent): void {
     if (recordedSelection(agent.session) === undefined && !hasStarted(agent.session)) {
-      const parent = this.owner.agents.list().find((a) => a !== agent && this.owner.agents.isOwnedBy(agent.id, a));
+      const parentId = agent.session.header.origin === "subagent" ? agent.session.header.parentSession : undefined;
+      const parent = parentId === undefined ? undefined : this.owner.agents.get(parentId);
       const inherited = parent === undefined ? undefined : recordedSelection(parent.session);
       appendPluginRecord(agent.session, RECORD, inherited ?? defaultSelection(this.document()));
     }
