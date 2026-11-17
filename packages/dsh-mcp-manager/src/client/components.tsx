@@ -5,6 +5,10 @@ import {
   Checkbox,
   IconChevronDownOutlineRegular,
   IconChevronRightOutlineRegular,
+  IconCopyOutlineRegular,
+  IconPlusOutlineRegular,
+  IconSearchOutlineRegular,
+  IconTrashOutlineRegular,
   Input,
   Menu,
   Modal,
@@ -32,6 +36,7 @@ export function ProfileMenu({
   servers,
   onOpen,
   unselected,
+  fullWidth,
   onChange,
   t,
 }: {
@@ -44,6 +49,7 @@ export function ProfileMenu({
   servers?: McpServerView[];
   onOpen?(): void;
   unselected?: boolean;
+  fullWidth?: boolean;
   onChange(id: string): void;
   t: T;
 }) {
@@ -52,13 +58,14 @@ export function ProfileMenu({
     <Menu
       open={open && !disabled}
       portal
-      compact
       autoFocus
       minWidthFromAnchor
+      className={fullWidth ? "shinku-mcp-profile-picker" : undefined}
       anchor={
         <Button
           size="sm"
           variant="outline"
+          className="shinku-mcp-profile-trigger shinku-mcp-secondary"
           aria-label={triggerLabel ?? t("profile")}
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
@@ -68,7 +75,7 @@ export function ProfileMenu({
             setOpen(!open);
           }}
         >
-          {triggerLabel ?? label ?? profiles.find((p) => p.id === value)?.name ?? t("none")}
+          <span>{triggerLabel ?? label ?? profiles.find((p) => p.id === value)?.name ?? t("none")}</span>
           <IconChevronDownOutlineRegular size={14} />
         </Button>
       }
@@ -127,6 +134,86 @@ function Disclosure({
   );
 }
 
+function ServerRow({
+  server,
+  checked,
+  onChange,
+  disabled,
+  statusUnknown,
+  query,
+  t,
+}: {
+  server: McpServerView;
+  checked: boolean;
+  onChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  statusUnknown?: boolean;
+  query: string;
+  t: T;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const open = expanded || !!query;
+  return (
+    <div className="shinku-mcp-server">
+      <div className="shinku-mcp-server-heading">
+        {onChange ? (
+          <Checkbox
+            className="shinku-mcp-server-name"
+            label={server.serverName}
+            checked={checked}
+            disabled={disabled}
+            onChange={onChange}
+          />
+        ) : (
+          <span className="shinku-mcp-server-name">{server.serverName}</span>
+        )}
+        <div className="shinku-mcp-server-info">
+          <span className="shinku-mcp-meta">
+            {server.available
+              ? `${server.tools.length} ${t(server.tools.length === 1 ? "tool" : "tools")}`
+              : t("unavailable")}
+          </span>
+          <span className="shinku-mcp-status" data-state={statusUnknown ? "unknown" : runtimeStatus(server)}>
+            {t(statusUnknown ? "statusUnknown" : runtimeStatus(server))}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shinku-mcp-server-toggle"
+          aria-label={`${t("details")} · ${server.transport}`}
+          aria-expanded={open}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {open ? <IconChevronDownOutlineRegular size={16} /> : <IconChevronRightOutlineRegular size={16} />}
+        </Button>
+      </div>
+      {open && (
+        <div className="shinku-mcp-server-details">
+          <p className="shinku-mcp-meta">
+            {server.transport} · {server.id}
+          </p>
+          {server.tools.length === 0 && <p className="shinku-mcp-description">{t("noTools")}</p>}
+          {server.tools
+            .filter(
+              (tool) =>
+                !query ||
+                `${server.serverName} ${server.id}`.toLocaleLowerCase().includes(query) ||
+                `${tool.name} ${tool.description}`.toLocaleLowerCase().includes(query),
+            )
+            .map((tool) => (
+              <Disclosure key={tool.name} label={tool.name} forceOpen={!!query} className="shinku-mcp-tool">
+                <p className="shinku-mcp-description">{tool.description}</p>
+                <p className="shinku-mcp-field-label">{t("schema")}</p>
+                <pre className="shinku-mcp-schema">{tool.parameterSchema}</pre>
+              </Disclosure>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Hierarchy browsing stays interactive when selection controls are read-only. */
 export function ServerTree({
   servers,
@@ -155,6 +242,7 @@ export function ServerTree({
   return (
     <div className="shinku-mcp-tree">
       <Input
+        icon={<IconSearchOutlineRegular size={16} />}
         data-modal-autofocus
         aria-label={t("search")}
         placeholder={t("search")}
@@ -164,48 +252,20 @@ export function ServerTree({
       {servers.length === 0 && <p className="shinku-mcp-description">{t("noServers")}</p>}
       {servers.length > 0 && visible.length === 0 && <p className="shinku-mcp-description">{t("noResults")}</p>}
       {visible.map((server) => (
-        <div className="shinku-mcp-server" key={server.id}>
-          <div className="shinku-mcp-server-heading">
-            {inherited || !onChange ? (
-              <span>{server.serverName}</span>
-            ) : (
-              <Checkbox
-                label={server.serverName}
-                checked={selected.includes(server.id)}
-                disabled={disabled || !onChange}
-                onChange={(checked) =>
-                  onChange?.(checked ? [...selected, server.id] : selected.filter((id) => id !== server.id))
-                }
-              />
-            )}
-            <span className="shinku-mcp-meta">
-              {server.available
-                ? `${server.tools.length} ${t(server.tools.length === 1 ? "tool" : "tools")}`
-                : t("unavailable")}
-            </span>
-            <span className="shinku-mcp-status" data-state={statusUnknown ? "unknown" : runtimeStatus(server)}>
-              {t(statusUnknown ? "statusUnknown" : runtimeStatus(server))}
-            </span>
-          </div>
-          <Disclosure label={`${t("details")} · ${server.transport}`} forceOpen={!!q}>
-            <p className="shinku-mcp-meta">{server.id}</p>
-            {server.tools.length === 0 && <p className="shinku-mcp-description">{t("noTools")}</p>}
-            {server.tools
-              .filter(
-                (tool) =>
-                  !q ||
-                  `${server.serverName} ${server.id}`.toLocaleLowerCase().includes(q) ||
-                  `${tool.name} ${tool.description}`.toLocaleLowerCase().includes(q),
-              )
-              .map((tool) => (
-                <Disclosure key={tool.name} label={tool.name} forceOpen={!!q} className="shinku-mcp-tool">
-                  <p className="shinku-mcp-description">{tool.description}</p>
-                  <p className="shinku-mcp-field-label">{t("schema")}</p>
-                  <pre className="shinku-mcp-schema">{tool.parameterSchema}</pre>
-                </Disclosure>
-              ))}
-          </Disclosure>
-        </div>
+        <ServerRow
+          key={server.id}
+          server={server}
+          checked={selected.includes(server.id)}
+          disabled={disabled}
+          statusUnknown={statusUnknown}
+          query={q}
+          t={t}
+          onChange={
+            inherited || !onChange
+              ? undefined
+              : (checked) => onChange(checked ? [...selected, server.id] : selected.filter((id) => id !== server.id))
+          }
+        />
       ))}
       {selected
         .filter((id) => !servers.some((s) => s.id === id))
@@ -219,12 +279,14 @@ export function ServerTree({
               onChange={() => onChange?.(selected.filter((s) => s !== id))}
             />
           ) : (
-            <div className="shinku-mcp-server-heading" key={id}>
+            <div className="shinku-mcp-server-heading shinku-mcp-server-missing" key={id}>
               <span>{id}</span>
-              <span className="shinku-mcp-meta">{t("missing")}</span>
-              <span className="shinku-mcp-status" data-state="disconnected">
-                {t("disconnected")}
-              </span>
+              <div className="shinku-mcp-server-info">
+                <span className="shinku-mcp-meta">{t("missing")}</span>
+                <span className="shinku-mcp-status" data-state="disconnected">
+                  {t("disconnected")}
+                </span>
+              </div>
             </div>
           ),
         )}
@@ -304,15 +366,41 @@ export function ProfilesPage({ api, t }: SurfaceProps) {
     }
   };
   return (
-    <section className="shinku-mcp" aria-label={t("title")}>
-      <h2 className="shinku-mcp-title">
-        <McpIcon size={18} />
-        {t("title")}
-      </h2>
+    <section className="shinku-mcp shinku-mcp-settings" aria-label={t("title")}>
+      <header className="shinku-mcp-settings-header">
+        <h2 className="shinku-mcp-title">
+          <McpIcon size={16} />
+          {t("title")}
+        </h2>
+        {document && (
+          <div className="shinku-mcp-actions">
+            <Button
+              size="sm"
+              variant="outline"
+              className="shinku-mcp-secondary"
+              icon={<IconPlusOutlineRegular size={16} />}
+              disabled={busy}
+              onClick={() => add()}
+            >
+              {t("newProfile")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shinku-mcp-secondary"
+              icon={<IconCopyOutlineRegular size={16} />}
+              disabled={busy || !profile}
+              onClick={() => add(true)}
+            >
+              {t("duplicate")}
+            </Button>
+          </div>
+        )}
+      </header>
       {error && (
         <div role="alert" className="shinku-mcp-error">
           {error}
-          <Button size="sm" onClick={load}>
+          <Button size="sm" variant="outline" className="shinku-mcp-secondary" onClick={load}>
             {t("retry")}
           </Button>
         </div>
@@ -321,19 +409,14 @@ export function ProfilesPage({ api, t }: SurfaceProps) {
         <p className="shinku-mcp-description">{t("loading")}</p>
       ) : (
         <>
-          <div className="shinku-mcp-actions">
-            <ProfileMenu t={t} profiles={document.profiles} value={id} disabled={busy} onChange={setId} />
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => add()}>
-              {t("newProfile")}
-            </Button>
-            <Button size="sm" disabled={busy || !profile} onClick={() => add(true)}>
-              {t("duplicate")}
-            </Button>
+          <div className="shinku-mcp-setting-row">
+            <span>{t("profile")}</span>
+            <ProfileMenu t={t} profiles={document.profiles} value={id} disabled={busy} onChange={setId} fullWidth />
           </div>
           {profile && (
             <>
-              <label className="shinku-mcp-field-label" htmlFor={nameId}>
-                {t("name")}
+              <label className="shinku-mcp-setting-row" htmlFor={nameId}>
+                <span>{t("name")}</span>
                 <Input
                   id={nameId}
                   value={profile.name}
@@ -341,12 +424,20 @@ export function ProfilesPage({ api, t }: SurfaceProps) {
                   onChange={(e) => update({ name: e.target.value })}
                 />
               </label>
-              <Checkbox
-                label={t("default")}
-                checked={document.defaultProfileId === id}
-                disabled={busy}
-                onChange={(checked) => setDocument({ ...document, defaultProfileId: checked ? id : "" })}
-              />
+              <div className="shinku-mcp-setting-row">
+                <Checkbox
+                  label={t("default")}
+                  checked={document.defaultProfileId === id}
+                  disabled={busy}
+                  onChange={(checked) => setDocument({ ...document, defaultProfileId: checked ? id : "" })}
+                />
+              </div>
+              <div className="shinku-mcp-section-heading">
+                <h3>{t("select")}</h3>
+                <span className="shinku-mcp-meta">
+                  {profile.servers.length} {t("selected")}
+                </span>
+              </div>
               <ServerTree
                 t={t}
                 servers={servers}
@@ -354,26 +445,39 @@ export function ProfilesPage({ api, t }: SurfaceProps) {
                 disabled={busy}
                 onChange={(servers) => update({ servers })}
               />
-              <Button size="sm" disabled={busy} onClick={() => setDeleting(id)}>
-                {t("remove")}
-              </Button>
             </>
           )}
           {!profile && <ServerTree t={t} servers={servers} selected={[]} />}
-          <div className="shinku-mcp-actions">
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy}
-              onClick={() => {
-                void save();
-              }}
-            >
-              {busy ? t("loading") : t("save")}
-            </Button>
-            <Button size="sm" disabled={busy} onClick={load}>
-              {t("cancel")}
-            </Button>
+          <div className="shinku-mcp-settings-footer">
+            <div>
+              {profile && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shinku-mcp-secondary shinku-mcp-danger"
+                  icon={<IconTrashOutlineRegular size={16} />}
+                  disabled={busy}
+                  onClick={() => setDeleting(id)}
+                >
+                  {t("remove")}
+                </Button>
+              )}
+            </div>
+            <div className="shinku-mcp-actions">
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={busy}
+                onClick={() => {
+                  void save();
+                }}
+              >
+                {busy ? t("loading") : t("save")}
+              </Button>
+              <Button size="sm" variant="outline" className="shinku-mcp-secondary" disabled={busy} onClick={load}>
+                {t("cancel")}
+              </Button>
+            </div>
           </div>
         </>
       )}
@@ -382,15 +486,18 @@ export function ProfilesPage({ api, t }: SurfaceProps) {
         onClose={() => setDeleting(undefined)}
         title={t("remove")}
         closeLabel={t("close")}
+        tone="warning"
+        className="shinku-mcp-delete-dialog"
         description={t("confirmDelete")}
         footer={
           <>
-            <Button size="sm" onClick={() => setDeleting(undefined)}>
+            <Button variant="outline" className="shinku-mcp-secondary" onClick={() => setDeleting(undefined)}>
               {t("cancel")}
             </Button>
             <Button
-              size="sm"
-              variant="primary"
+              variant="outline"
+              className="shinku-mcp-secondary shinku-mcp-danger"
+              icon={<IconTrashOutlineRegular size={16} />}
               onClick={() => {
                 if (document) {
                   setDocument({
