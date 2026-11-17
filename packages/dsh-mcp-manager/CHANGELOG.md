@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/Gh-Shinku/dsh-plugins/compare/dsh-mcp-manager-v0.0.3...dsh-mcp-manager-v0.0.4) (2026-11-17)
+
+
+### Bug Fixes
+
+* **mcp-manager:** match client proportions and action styles ([#9](https://github.com/Gh-Shinku/dsh-plugins/issues/9)) ([15e7cab](https://github.com/Gh-Shinku/dsh-plugins/commit/15e7cab47182f284ec8457dd5610413162c6dafd))
+
 ## [0.0.3](https://github.com/Gh-Shinku/dsh-plugins/compare/dsh-mcp-manager-v0.0.2...dsh-mcp-manager-v0.0.3) (2026-11-16)
 
 
