@@ -5,6 +5,7 @@ import Loader from "@deepseek-ai/cordis-plugin-loader";
 import AgentRegistry from "@deepseek-ai/dsh-agent";
 import AgentLoop from "@deepseek-ai/dsh-agent-loop";
 import LlmRuntime, { createUserMessage, ToolCallId } from "@deepseek-ai/dsh-llm";
+import McpServerManager from "@deepseek-ai/dsh-mcp-manager";
 import McpResources from "@deepseek-ai/dsh-mcp-resources";
 import { type PtcRunRequest, type PtcRunResult, type PtcRunSpec, PtcRuntime } from "@deepseek-ai/dsh-ptc-runtime";
 import SessionStore, { SessionId } from "@deepseek-ai/dsh-session";
@@ -98,6 +99,37 @@ it("isolates concurrent sessions through native MCP discovery, prompt assembly a
   expect((await call(ctx, a.agent, "mcp__a__echo", { text: "hello" })).isError).toBe(false);
   expect((await call(ctx, a.agent, "mcp__b__echo")).isError).toBe(true);
   expect((await call(ctx, b.agent, "mcp__a__echo")).isError).toBe(true);
+});
+
+it("discovers native manager servers without Loader entries and preserves session admission and public-only views", async () => {
+  const ctx = await setup();
+  await ctx.plugin(McpServerManager, {
+    servers: {
+      managed: {
+        transport: "stdio",
+        command: process.execPath,
+        args: [resolve("packages/dsh-mcp-manager/test/fixtures/server.mjs"), "managed"],
+        env: { PRIVATE_TOKEN: "do-not-expose" },
+      },
+      disabled: { transport: "stdio", command: "never-spawn-this", enabled: false },
+    },
+  });
+  await expect.poll(() => ctx.mcpManager.list().find((s) => s.name === "managed")?.status.state).toBe("connected");
+  const { agent } = await ctx.agents.create({ sessionId: SessionId("managed") });
+  const catalog = ctx.shinkuMcpManager.catalog();
+  expect(catalog.find((s) => s.serverName === "managed")).toMatchObject({
+    id: "mcp-manager:managed",
+    transport: "stdio",
+    available: true,
+    diagnostic: "",
+    tools: [{ name: "mcp__managed__echo" }],
+  });
+  expect(catalog.find((s) => s.serverName === "disabled")).toMatchObject({ available: false, diagnostic: "disabled" });
+  expect(JSON.stringify(catalog)).not.toContain("do-not-expose");
+  expect((await call(ctx, agent, "mcp__managed__echo")).isError).toBe(true);
+  ctx.shinkuMcpManager.select(agent.id, choice(["mcp-manager:managed"]));
+  expect((await call(ctx, agent, "mcp__managed__echo", { text: "managed" })).isError).toBe(false);
+  expect((await call(ctx, agent, "mcp__a__echo")).isError).toBe(true);
 });
 
 it("keeps session snapshots independent of templates and inherits the snapshot into a fork seed", async () => {

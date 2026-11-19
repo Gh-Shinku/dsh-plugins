@@ -1,6 +1,7 @@
 /** Read native Loader entries without copying transport settings or credentials. */
 import type { Context } from "@deepseek-ai/cordis";
 import { interpolate } from "@deepseek-ai/cordis-plugin-loader";
+import type {} from "@deepseek-ai/dsh-mcp-manager";
 import type { ScopeKey } from "@deepseek-ai/dsh-scope";
 import { scopeChainOf, scopeOf } from "@deepseek-ai/dsh-scope";
 import type {} from "@deepseek-ai/dsh-tools";
@@ -11,6 +12,21 @@ import { serverForTool } from "./domain.ts";
 export function readCatalog(ctx: Context, scope?: ScopeKey): McpServerView[] {
   const chain = new Set(scopeChainOf(scope));
   const servers: McpServerView[] = [];
+  const manager = ctx.get("mcpManager");
+  if (manager) {
+    const configured = manager.config.servers.get();
+    for (const server of manager.list()) {
+      if (!server.configured) continue;
+      servers.push({
+        id: `mcp-manager:${server.name}`,
+        serverName: server.name,
+        transport: configured[server.name]?.transport ?? "unknown",
+        available: server.status.state === "connected",
+        diagnostic: server.status.state === "connected" ? "" : server.status.state,
+        tools: [],
+      });
+    }
+  }
   for (const entry of ctx.loader.entries()) {
     if (entry.options.name !== "@deepseek-ai/dsh-mcp-client") continue;
     const entryScope = scopeOf(entry.context);
