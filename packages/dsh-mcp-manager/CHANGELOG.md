@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/Gh-Shinku/dsh-plugins/compare/dsh-mcp-manager-v0.0.4...dsh-mcp-manager-v0.0.5) (2026-11-19)
+
+
+### Bug Fixes
+
+* support DeepSeek Harness 0.2.2-rc.5 ([#11](https://github.com/Gh-Shinku/dsh-plugins/issues/11)) ([26b43f4](https://github.com/Gh-Shinku/dsh-plugins/commit/26b43f4efa5939edeb538936a541134ef1209b7e))
+
 ## [0.0.4](https://github.com/Gh-Shinku/dsh-plugins/compare/dsh-mcp-manager-v0.0.3...dsh-mcp-manager-v0.0.4) (2026-11-17)
 
 
